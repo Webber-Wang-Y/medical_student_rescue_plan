@@ -330,6 +330,71 @@ display: none;
 }
 </style>
 
+
+<style>
+/* === 左侧浮动目录样式 === */
+#custom-toc {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 260px;
+  bottom: 20px;
+  overflow-y: auto;
+  background: #fdfdfd;
+  border: 1px solid #e3e3e3;
+  border-radius: 6px;
+  padding: 15px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  z-index: 9999;
+}
+#custom-toc .toc-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #ddd;
+  color: #333;
+}
+#custom-toc ul {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+#custom-toc li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+#custom-toc a {
+  color: #337ab7;
+  text-decoration: none;
+  display: block;
+  transition: all 0.2s;
+}
+#custom-toc a:hover {
+  text-decoration: underline;
+  color: #23527c;
+  background-color: #f5f5f5;
+}
+/* 层级缩进与字体大小 */
+#custom-toc .level-1 { font-size: 15px; font-weight: bold; margin-top: 10px; }
+#custom-toc .level-2 { font-size: 14px; padding-left: 15px; }
+#custom-toc .level-3 { font-size: 13px; padding-left: 30px; color: #555; }
+
+/* === 主内容区域响应式偏移 === */
+@media (min-width: 992px) {
+  .main-container {
+    /* 强制正文整体向右偏移 340px (目录宽260 + 靠左20 + 间距60) */
+    margin-left: 340px !important; 
+    margin-right: auto;
+  }
+}
+@media (max-width: 991px) {
+  #custom-toc {
+    display: none; /* 屏幕太小时自动隐藏目录，避免遮挡正文 */
+  }
+}
+</style>
+
 <!-- code folding -->
 
 
@@ -2023,6 +2088,73 @@ $(document).ready(function () {
     document.getElementsByTagName("head")[0].appendChild(script);
   })();
 </script>
+
+<script>
+$(document).ready(function() {
+  // 1. 创建目录的外部容器，并插入到 body 的最前面
+  var tocHtml = '<div id="custom-toc"><div class="toc-title">文章目录</div><ul id="toc-list"></ul></div>';
+  $('body').prepend(tocHtml);
+  
+  var $tocList = $('#toc-list');
+  
+  // 2. 遍历主容器内所有的 h1, h2, h3 标题
+  $('.main-container').find('h1, h2, h3').each(function() {
+    var $heading = $(this);
+    
+    // 排除被标记为 toc-ignore 的大标题
+    if ($heading.hasClass('toc-ignore')) return;
+    
+    // 获取跳转的锚点 ID
+    var targetId = $heading.parent('.section').attr('id') || $heading.attr('id');
+    
+    // 万一有没有 ID 的标题，自动给它生成一个随机 ID
+    if (!targetId) {
+      targetId = 'toc_' + Math.random().toString(36).substr(2, 9);
+      $heading.attr('id', targetId);
+    }
+    
+    // 获取标题级别与文本
+    var level = parseInt(this.nodeName.substring(1));
+    var text = $heading.text();
+    
+    // 3. 构建目录列表项并附加对应的层级 class
+    var $li = $('<li></li>');
+    var $a = $('<a></a>')
+        .text(text)
+        .attr('href', '#' + targetId)
+        .addClass('level-' + level);
+        
+    $li.append($a);
+    $tocList.append($li);
+  });
+  
+  // 4. 添加平滑滚动的跳转效果（已修复中文ID无法跳转的问题）
+  $('#custom-toc a').on('click', function(e) {
+    e.preventDefault();
+    
+    // 获取 href 属性的值并解码，防止中文 ID 被转化为 URL 编码
+    var targetHref = decodeURIComponent($(this).attr('href'));
+    var targetIdClean = targetHref.substring(1); // 去掉 '#' 符号
+    
+    // 使用原生的 getElementById 绕过 jQuery 特殊符号解析 bug
+    var targetElement = document.getElementById(targetIdClean);
+    
+    if (targetElement) {
+      $('html, body').animate({
+        scrollTop: $(targetElement).offset().top - 30 // 减去30像素留出顶部缓冲
+      }, 300, function() {
+        // 动画结束后更新浏览器 URL，使用 history API 避免页面发生跳动
+        if(history.pushState) {
+          history.pushState(null, null, targetHref);
+        } else {
+          window.location.hash = targetHref;
+        }
+      });
+    }
+  });
+});
+</script>
+
 
 </body>
 </html>
